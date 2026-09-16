@@ -1,0 +1,45 @@
+{
+  "name": "@zsxsoft/omp-axonhub",
+  "version": "0.1.0",
+  "description": "oh-my-pi (omp) plugin that registers an AxonHub gateway as the `axonhub` model provider",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zsxsoft/omp-axonhub"
+  },
+  "keywords": [
+    "omp",
+    "oh-my-pi",
+    "omp-plugin",
+    "pi",
+    "axonhub",
+    "llm"
+  ],
+  "files": [
+    "index.ts",
+    "discovery.ts",
+    "settings.ts"
+  ],
+  "omp": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@oh-my-pi/pi-ai": "*",
+    "@oh-my-pi/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@oh-my-pi/pi-ai": "^18.1.17",
+    "@oh-my-pi/pi-coding-agent": "^18.1.17",
+    "@types/bun": "^1.3.14",
+    "typescript": "^5.6.3"
+  },
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
