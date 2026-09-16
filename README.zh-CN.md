@@ -1,5 +1,9 @@
 # omp-axonhub
 
+[![npm version](https://img.shields.io/npm/v/omp-axonhub)](https://www.npmjs.com/package/omp-axonhub)
+[![CI](https://github.com/zsxsoft/omp-axonhub/actions/workflows/ci.yml/badge.svg)](https://github.com/zsxsoft/omp-axonhub/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 [English](README.md)
 
 [oh-my-pi](https://github.com/can1357/oh-my-pi)（omp）插件，把 [AxonHub](https://github.com/looplj/axonhub) LLM 网关注册为 `axonhub` 模型 provider。

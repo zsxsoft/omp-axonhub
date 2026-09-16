@@ -1,5 +1,9 @@
 # omp-axonhub
 
+[![npm version](https://img.shields.io/npm/v/omp-axonhub)](https://www.npmjs.com/package/omp-axonhub)
+[![CI](https://github.com/zsxsoft/omp-axonhub/actions/workflows/ci.yml/badge.svg)](https://github.com/zsxsoft/omp-axonhub/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 [中文文档](README.zh-CN.md)
 
 An [oh-my-pi](https://github.com/can1357/oh-my-pi) (omp) plugin that registers an [AxonHub](https://github.com/looplj/axonhub) LLM gateway as the `axonhub` model provider.
