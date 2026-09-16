@@ -19,7 +19,7 @@ AxonHub is a multi-protocol gateway: `/v1` speaks OpenAI chat-completions and re
 From npm:
 
 ```sh
-omp plugin install @zsxsoft/omp-axonhub
+omp plugin install omp-axonhub
 ```
 
 Directly from GitHub (bun resolves the `owner/repo` shorthand):
