@@ -1,0 +1,39 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  # OIDC token for npm trusted publishing and provenance attestations.
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest
+      - run: npm install
+      - run: npm run check
+      - name: Verify tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          [ "$tag" = "$pkg" ] || { echo "tag $tag != package.json version $pkg"; exit 1; }
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          # Not needed once a trusted publisher is configured on npmjs.com —
+          # the npm CLI uses the OIDC token automatically. Required for the
+          # first publish because trusted publishing can only be configured
+          # on a package that already exists.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
