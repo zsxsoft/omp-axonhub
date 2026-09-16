@@ -22,12 +22,6 @@ AxonHub 是多协议网关：`/v1` 接受 OpenAI chat-completions 和 responses�
 omp plugin install omp-axonhub
 ```
 
-直接从 GitHub 安装（bun 会把 `owner/repo` 识别为 GitHub 缩写）：
-
-```sh
-omp plugin install zsxsoft/omp-axonhub
-```
-
 本地开发用 link：
 
 ```sh

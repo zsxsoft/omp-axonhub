@@ -22,12 +22,6 @@ From npm:
 omp plugin install omp-axonhub
 ```
 
-Directly from GitHub (bun resolves the `owner/repo` shorthand):
-
-```sh
-omp plugin install zsxsoft/omp-axonhub
-```
-
 For local development, link a checkout instead:
 
 ```sh
