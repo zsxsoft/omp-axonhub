@@ -1,6 +1,6 @@
 {
   "name": "omp-axonhub",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "oh-my-pi (omp) plugin that registers an AxonHub gateway as the `axonhub` model provider",
   "type": "module",
   "license": "MIT",
