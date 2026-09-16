@@ -111,11 +111,16 @@ export function isChatModel(model: AxonHubModel): boolean {
   return !NON_CHAT_ID.test(model.id ?? "");
 }
 
-/** Endpoint and wire protocol for a model id, given the gateway root. */
+/**
+ * Endpoint and wire protocol for a model id, given the gateway root.
+ *
+ * Family names must appear as whole words (`(^|[-/:._])name`): substring
+ * matching would route `deepclaude` or `my-codex-fork` to the wrong wire.
+ */
 export function routeFor(id: string, root: string): { api: Api; baseUrl: string } {
-  if (/claude/i.test(id)) return { api: "anthropic-messages", baseUrl: `${root}/anthropic` };
-  if (/gemini/i.test(id)) return { api: "google-generative-ai", baseUrl: `${root}/gemini/v1beta` };
-  if (/^gpt-|codex/i.test(id)) return { api: "openai-responses", baseUrl: `${root}/v1` };
+  if (/(^|[-/:._])claude/i.test(id)) return { api: "anthropic-messages", baseUrl: `${root}/anthropic` };
+  if (/(^|[-/:._])gemini/i.test(id)) return { api: "google-generative-ai", baseUrl: `${root}/gemini/v1beta` };
+  if (/^gpt-|(^|[-/:._])codex/i.test(id)) return { api: "openai-responses", baseUrl: `${root}/v1` };
   return { api: "openai-completions", baseUrl: `${root}/v1` };
 }
 
@@ -203,6 +208,21 @@ export function toProviderModel(
     contextWindow: model.context_length ?? enrichment?.limit?.context,
     maxTokens: model.max_output_tokens ?? enrichment?.limit?.output,
   };
+}
+
+/**
+ * Enrichment lookup tolerant of gateway-prefixed ids: models.dev keys are
+ * bare ids, so `openai/gpt-4o` must also try `gpt-4o`.
+ */
+export function lookupEnrichment(
+  index: Map<string, ModelsDevModel> | undefined,
+  id: string,
+): ModelsDevModel | undefined {
+  if (!index) return undefined;
+  const direct = index.get(id);
+  if (direct) return direct;
+  const slash = id.lastIndexOf("/");
+  return slash >= 0 ? index.get(id.slice(slash + 1)) : undefined;
 }
 
 /** Index models.dev by model id; the first provider declaring an id wins. */
@@ -304,7 +324,7 @@ export async function discoverModels(options: DiscoveryOptions): Promise<AxonHub
 
   const configs: AxonHubModelConfig[] = [];
   for (const model of usable) {
-    const config = toProviderModel(model, options.root, model.id ? enrichment?.get(model.id) : undefined);
+    const config = toProviderModel(model, options.root, model.id ? lookupEnrichment(enrichment, model.id) : undefined);
     if (config) configs.push(config);
   }
   return configs;
