@@ -24,7 +24,29 @@ function isEnabled(value: string | undefined): boolean {
 }
 
 function resolveRoot(agentDir: string): string {
-  return normalizeRoot(process.env[BASE_URL_ENV] ?? readStoredBaseUrl(agentDir) ?? DEFAULT_ROOT);
+  // An empty env value reads as "not set"; without the fallback every fetch
+  // would fail on a URL parse error.
+  const envRoot = process.env[BASE_URL_ENV]?.trim();
+  return normalizeRoot(envRoot || readStoredBaseUrl(agentDir) || DEFAULT_ROOT);
+}
+
+/**
+ * Guard against credential theft through a repo-controlled `.env`.
+ *
+ * omp merges a project's `.env` into `process.env`, so a repository can point
+ * `AXONHUB_BASE_URL` anywhere. When the URL comes from the environment but the
+ * key does not, the resolved credential may be the `/login` key issued for a
+ * different gateway — sending it there would leak it. Refuse unless the env
+ * URL matches the gateway the stored credential was issued for.
+ */
+function assertEnvUrlHasOwnKey(agentDir: string): void {
+  const envRoot = process.env[BASE_URL_ENV]?.trim();
+  if (!envRoot || process.env[API_KEY_ENV]) return;
+  if (normalizeRoot(envRoot) === readStoredBaseUrl(agentDir)) return;
+  throw new Error(
+    `axonhub: ${BASE_URL_ENV} is set without ${API_KEY_ENV}; ` +
+      `refusing to send the /login credential to ${envRoot}`,
+  );
 }
 
 /**
@@ -35,14 +57,24 @@ function resolveRoot(agentDir: string): string {
  * The gateway is mutated in place because the host re-runs discovery for this
  * provider immediately after a successful login, so a new URL takes effect
  * without a restart.
+ *
+ * `onAuth` is emitted before the first prompt: in RPC mode the host rejects
+ * `onPrompt` until an auth info has been emitted, so a prompt-first login can
+ * never work headlessly. Built-in key-paste logins (e.g. Alibaba Coding Plan)
+ * do the same.
  */
 async function login(gateway: { root: string }, agentDir: string, callbacks: OAuthLoginCallbacks): Promise<string> {
+  callbacks.onAuth({
+    url: gateway.root,
+    instructions: "Paste an AxonHub API key for this gateway",
+  });
   const enteredUrl = (
     await callbacks.onPrompt({
       message: `AxonHub base URL (Enter keeps ${gateway.root})`,
       placeholder: "https://axonhub.example.com",
     })
   ).trim();
+  if (callbacks.signal?.aborted) throw new Error("Login cancelled");
   const root = enteredUrl ? normalizeRoot(enteredUrl) : gateway.root;
 
   const key = (
@@ -51,11 +83,25 @@ async function login(gateway: { root: string }, agentDir: string, callbacks: OAu
       placeholder: "ah-...",
     })
   ).trim();
+  if (callbacks.signal?.aborted) throw new Error("Login cancelled");
   if (!key) throw new Error("No AxonHub API key entered");
 
-  const response = await fetch(`${root}/v1/models`, { headers: { Authorization: `Bearer ${key}` } });
+  // Bounded probe: the host's cancel signal plus a local timeout, through the
+  // host's fetch (custom CA aware), so a stalled gateway can't hold /login
+  // open and Esc still aborts it.
+  const probe = callbacks.fetch ?? fetch;
+  const timeoutSignal = AbortSignal.timeout(15_000);
+  const signal = callbacks.signal ? AbortSignal.any([callbacks.signal, timeoutSignal]) : timeoutSignal;
+  const response = await probe(`${root}/v1/models`, { headers: { Authorization: `Bearer ${key}` }, signal });
   if (!response.ok) {
     throw new Error(`AxonHub at ${root} rejected the key: ${response.status} ${response.statusText}`);
+  }
+  // A reverse proxy can answer an unknown path with a 200 HTML page; only a
+  // JSON body proves the key really reached AxonHub.
+  try {
+    await response.json();
+  } catch {
+    throw new Error(`AxonHub at ${root} did not return a model list (not an AxonHub endpoint?)`);
   }
 
   writeStoredBaseUrl(agentDir, root);
@@ -89,7 +135,9 @@ export default function axonhub(pi: ExtensionAPI): void {
   const includeNonChat = isEnabled(process.env.AXONHUB_INCLUDE_NON_CHAT);
 
   pi.registerProvider(PROVIDER_ID, {
-    baseUrl: `${gateway.root}/v1`,
+    // No provider-level baseUrl: omp treats it as an override that would
+    // clobber each model's own baseUrl, breaking the multi-protocol routing
+    // in routeFor. Every discovered model carries its own baseUrl instead.
     api: "openai-completions",
     // The variable *name* is passed so omp resolves it at request time. A
     // literal naming no existing variable would be stored as the key itself
@@ -100,7 +148,12 @@ export default function axonhub(pi: ExtensionAPI): void {
       login: callbacks => login(gateway, agentDir, callbacks),
     },
     fetchDynamicModels: async apiKey => {
-      if (!apiKey) return [];
+      assertEnvUrlHasOwnKey(agentDir);
+      // Throw rather than return []: an empty list is authoritative and would
+      // wipe the cached catalog, while a failed discovery keeps it.
+      if (!apiKey) {
+        throw new Error(`axonhub: no API key — set ${API_KEY_ENV} or run /login axonhub`);
+      }
       const models = await discoverModels({
         root: gateway.root,
         apiKey,

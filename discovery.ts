@@ -94,14 +94,20 @@ export function normalizeRoot(baseUrl: string): string {
   return baseUrl.replace(/\/v1\/?$/, "").replace(/\/+$/, "");
 }
 
-/** Ids naming an embedding, rerank, speech, or image model rather than a chat model. */
-const NON_CHAT_ID = /embedding|rerank|(^|[-/])bge-|whisper|sensevoice|gpt-image|imagine-image/i;
+/**
+ * Ids naming an embedding, rerank, speech, image, video, or moderation model
+ * rather than a chat model. AxonHub often reports bare ids with no `type` or
+ * `modalities`, so this list is the only filter for them.
+ */
+const NON_CHAT_ID =
+  /embedding|rerank|(^|[-/])bge-|whisper|sensevoice|gpt-image|imagine-image|(^|[-/:])tts|dall-e|sora|(^|[-/])veo|imagen|moderation|stable-diffusion|(^|[-/])flux|kokoro/i;
 
 /** Whether a model can serve chat completions, which is all omp drives. */
 export function isChatModel(model: AxonHubModel): boolean {
-  if (model.type !== undefined && model.type !== "chat") return false;
+  // `type: null` and absent `type` both mean "AxonHub holds no metadata".
+  if (model.type != null && model.type !== "chat") return false;
   const output = model.modalities?.output;
-  if (output !== undefined && !output.includes("text")) return false;
+  if (Array.isArray(output) && !output.includes("text")) return false;
   return !NON_CHAT_ID.test(model.id ?? "");
 }
 
